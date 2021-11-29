@@ -145,8 +145,7 @@ class _Isolatengine implements Isolatengine {
     Future<void> Function(dynamic param)? notify,
   }) async {
     final id = _id++;
-    final message =
-        _Message(type: _Type.deliver, method: method, param: param, id: id);
+    final message = _Message(type: _Type.deliver, method: method, param: param, id: id);
     StreamSubscription? sub;
     Timer? after;
     if (notify != null) {
@@ -237,8 +236,7 @@ class _Isolatengine implements Isolatengine {
           await _send(_Message(
               type: _Type.ack,
               id: id,
-              param: handler(param, cancelable: cancelable,
-                  notify: (dynamic param) async {
+              param: handler(param, cancelable: cancelable, notify: (dynamic param) async {
                 await _send(_Message(type: _Type.notify, id: id, param: param));
               })));
           _cancellations.remove(id);
@@ -283,12 +281,8 @@ class _Isolatengine implements Isolatengine {
   final ReceivePort _receivePort;
   late final _sendPortStremController = StreamController.broadcast();
   late int _id = 0;
-  late final _handlers = <
-      String,
-      Future<dynamic> Function(dynamic param,
-          {Cancelable? cancelable, Function(dynamic param)? notify})>{};
-  late final _completions =
-      <int, Function(_Status status, {dynamic param, dynamic error})>{};
+  late final _handlers = <String, Handler>{};
+  late final _completions = <int, Function(_Status status, {dynamic param, dynamic error})>{};
   late final _notifications = <int, Function(dynamic param)>{};
   late final _cancellations = <int, Function()>{};
 }
