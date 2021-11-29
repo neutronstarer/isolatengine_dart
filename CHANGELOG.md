@@ -13,3 +13,7 @@
 ## 0.0.4
 
 * TODO: optimize code.
+
+## 0.0.5
+
+#TODO: function style.
