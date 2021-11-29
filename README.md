@@ -16,3 +16,12 @@ void main(){
     await engine.receive();
 }
 ```
+### And now you can call emit or deliver function.
+
+```dart
+
+engine.emit("your_method", param: null);
+
+final res = await engine.deliver("your_method", param: null);
+
+```

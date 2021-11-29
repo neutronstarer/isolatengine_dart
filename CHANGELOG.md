@@ -5,3 +5,7 @@
 ## 0.0.2
 
 * TODO: Update dependencies.
+
+## 0.0.3
+
+* TODO: fix handler error bug.

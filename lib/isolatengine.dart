@@ -62,8 +62,8 @@ abstract class Isolatengine {
   Future<dynamic> deliver(
     String method, {
     dynamic param,
-    Cancelable? cancelable,
     Duration? timeout,
+    Cancelable? cancelable,
     Function(dynamic param)? notify,
   });
 
@@ -99,24 +99,6 @@ class _Message {
     this.param,
     this.error,
   });
-
-  // _Message.fromJson(Map<String, dynamic> json) {
-  //   type = json['type'];
-  //   method = json['method'];
-  //   id = json['id'];
-  //   error = json['error'];
-  //   param = json['param'];
-  // }
-
-  // Map<String, dynamic> toJson() {
-  //   final Map<String, dynamic> data = <String, dynamic>{};
-  //   data['type'] = type;
-  //   data['method'] = method;
-  //   data['id'] = id;
-  //   data['error'] = error;
-  //   data['param'] = param;
-  //   return data;
-  // }
 }
 
 class _Isolatengine implements Isolatengine {
@@ -127,7 +109,6 @@ class _Isolatengine implements Isolatengine {
     if (_sendPort == null) {
       return;
     }
-    // _send(_Message(type: _Type.syn, param: _receivePort.sendPort).toJson());
     _send(_Message(type: _Type.syn, param: _receivePort.sendPort));
   }
 
@@ -150,8 +131,7 @@ class _Isolatengine implements Isolatengine {
     String method, {
     dynamic param,
   }) async {
-    final message =
-        _Message(type: _Type.emit, method: method, param: param, id: _id++);
+    final message = _Message(type: _Type.emit, method: method, param: param);
     // await _send(message.toJson());
     await _send(message);
   }
@@ -160,40 +140,26 @@ class _Isolatengine implements Isolatengine {
   Future<dynamic> deliver(
     String method, {
     dynamic param,
-    Cancelable? cancelable,
     Duration? timeout,
+    Cancelable? cancelable,
     Function(dynamic param)? notify,
   }) async {
     final id = _id++;
     final message =
         _Message(type: _Type.deliver, method: method, param: param, id: id);
     StreamSubscription? sub;
-    if (cancelable != null) {
-      sub = cancelable.whenCancel(() async {
-        final completion = _completions[id];
-        if (completion != null) {
-          completion(_Status.cancelled);
-          final message =
-              _Message(type: _Type.cancel, method: null, param: null, id: id);
-          // await _send(message.toJson());
-          await _send(message);
-        }
-      });
-    }
     Timer? after;
-    if (timeout != null) {
-      after = Timer.periodic(timeout, (timer) async {
-        final completion = _completions[id];
-        if (completion != null) {
-          completion(_Status.timedout);
-        }
-      });
-    }
     if (notify != null) {
       _notifications[id] = notify;
     }
+    var completed = false;
     final completer = Completer<dynamic>();
-    _completions[id] = (_Status status, {dynamic param}) {
+    // ignore: prefer_function_declarations_over_variables
+    final complete = (_Status status, {dynamic param, dynamic error}) {
+      if (completed) {
+        return;
+      }
+      completed = true;
       switch (status) {
         case _Status.cancelled:
           completer.completeError(Exception('cancelled'));
@@ -202,7 +168,11 @@ class _Isolatengine implements Isolatengine {
           completer.completeError(Exception('timedout'));
           break;
         default:
-          completer.complete(param);
+          if (error == null) {
+            completer.complete(param);
+            break;
+          }
+          completer.completeError(error);
           break;
       }
       after?.cancel();
@@ -210,7 +180,22 @@ class _Isolatengine implements Isolatengine {
       _completions.remove(id);
       _notifications.remove(id);
     };
-    // await _send(message.toJson());
+
+    if (cancelable != null) {
+      sub = cancelable.whenCancel(() async {
+        complete(_Status.cancelled);
+        final message = _Message(type: _Type.cancel, id: id);
+        await _send(message);
+      });
+    }
+    if (timeout != null) {
+      after = Timer.periodic(timeout, (timer) async {
+        complete(_Status.timedout);
+        final message = _Message(type: _Type.cancel, id: id);
+        await _send(message);
+      });
+    }
+    _completions[id] = complete;
     await _send(message);
     return await completer.future;
   }
@@ -223,9 +208,7 @@ class _Isolatengine implements Isolatengine {
   }
 
   _didReceive(dynamic data) {
-    // final message = _Message.fromJson(data);
     final message = data;
-
     final type = message.type;
     final method = message.method;
     final id = message.id;
@@ -243,23 +226,19 @@ class _Isolatengine implements Isolatengine {
         if (handler == null) {
           break;
         }
+        if (id == null) {
+          break;
+        }
         final cancelable = Cancelable();
-        _cancellations[id!] = cancelable;
+        _cancellations[id] = cancelable;
         handler(param, cancelable: cancelable, notify: (dynamic param) {
-          final replication =
-              _Message(type: _Type.notify, id: id, param: param);
-          // _send(replication.toJson());
-          _send(replication);
+          _send(_Message(type: _Type.notify, id: id, param: param));
         }).then((value) {
           _cancellations.remove(id);
-          final replication = _Message(type: _Type.ack, id: id, param: value);
-          // _send(replication.toJson());
-          _send(replication);
+          _send(_Message(type: _Type.ack, id: id, param: value));
         }).catchError((e) {
           _cancellations.remove(id);
-          final replication = _Message(type: _Type.ack, id: id, error: e);
-          // _send(replication.toJson());
-          _send(replication);
+          _send(_Message(type: _Type.ack, id: id, error: e));
         });
         break;
       case _Type.ack:
@@ -303,7 +282,8 @@ class _Isolatengine implements Isolatengine {
       String,
       Future<dynamic> Function(dynamic param,
           {Cancelable? cancelable, Function(dynamic param)? notify})>{};
-  late final _completions = <int, Function(_Status status, {dynamic param})>{};
+  late final _completions =
+      <int, Function(_Status status, {dynamic param, dynamic error})>{};
   late final _notifications = <int, Function(dynamic param)>{};
   late final _cancellations = <int, Cancelable>{};
 }
