@@ -9,3 +9,7 @@
 ## 0.0.3
 
 * TODO: fix handler error bug.
+
+## 0.0.4
+
+* TODO: optimize code.

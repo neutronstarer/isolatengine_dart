@@ -64,7 +64,7 @@ abstract class Isolatengine {
     dynamic param,
     Duration? timeout,
     Cancelable? cancelable,
-    Function(dynamic param)? notify,
+    Future<void> Function(dynamic param)? notify,
   });
 
   /// Continuously receive message
@@ -142,7 +142,7 @@ class _Isolatengine implements Isolatengine {
     dynamic param,
     Duration? timeout,
     Cancelable? cancelable,
-    Function(dynamic param)? notify,
+    Future<void> Function(dynamic param)? notify,
   }) async {
     final id = _id++;
     final message =
@@ -207,7 +207,7 @@ class _Isolatengine implements Isolatengine {
     }
   }
 
-  _didReceive(dynamic data) {
+  _didReceive(dynamic data) async {
     final message = data;
     final type = message.type;
     final method = message.method;
@@ -230,16 +230,22 @@ class _Isolatengine implements Isolatengine {
           break;
         }
         final cancelable = Cancelable();
-        _cancellations[id] = cancelable;
-        handler(param, cancelable: cancelable, notify: (dynamic param) {
-          _send(_Message(type: _Type.notify, id: id, param: param));
-        }).then((value) {
+        _cancellations[id] = () {
+          cancelable.cancel();
+        };
+        try {
+          await _send(_Message(
+              type: _Type.ack,
+              id: id,
+              param: handler(param, cancelable: cancelable,
+                  notify: (dynamic param) async {
+                await _send(_Message(type: _Type.notify, id: id, param: param));
+              })));
           _cancellations.remove(id);
-          _send(_Message(type: _Type.ack, id: id, param: value));
-        }).catchError((e) {
+        } catch (e) {
+          await _send(_Message(type: _Type.ack, id: id, error: e));
           _cancellations.remove(id);
-          _send(_Message(type: _Type.ack, id: id, error: e));
-        });
+        }
         break;
       case _Type.ack:
         final completion = _completions[id];
@@ -248,15 +254,14 @@ class _Isolatengine implements Isolatengine {
         }
         break;
       case _Type.cancel:
-        final cancelable = _cancellations[id];
-        if (cancelable != null) {
-          cancelable.cancel();
-          _cancellations.remove(id);
+        final cancel = _cancellations[id];
+        if (cancel != null) {
+          cancel();
         }
         break;
       case _Type.notify:
         final notify = _notifications[id];
-        notify?.call(param);
+        await notify?.call(param);
         break;
       case _Type.syn:
         _sendPort = param;
@@ -285,5 +290,5 @@ class _Isolatengine implements Isolatengine {
   late final _completions =
       <int, Function(_Status status, {dynamic param, dynamic error})>{};
   late final _notifications = <int, Function(dynamic param)>{};
-  late final _cancellations = <int, Cancelable>{};
+  late final _cancellations = <int, Function()>{};
 }

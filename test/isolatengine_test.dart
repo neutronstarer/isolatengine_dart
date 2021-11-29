@@ -39,7 +39,7 @@ void main() {
       try {
         final cancelable = Cancelable();
         final replication = await engine.deliver('ping', cancelable: cancelable,
-            notify: (param) {
+            notify: (param) async {
           debugPrint(param);
         });
         debugPrint(replication);
