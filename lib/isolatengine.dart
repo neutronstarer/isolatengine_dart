@@ -266,15 +266,15 @@ class _Isolatengine implements Isolatengine {
           reply(param, null);
         }
         break;
+      case _Typ.notify:
+        final notify = _notifies[id];
+        notify?.call(param);
+        break;
       case _Typ.cancel:
         final cancel = _cancels[id];
         if (cancel != null) {
           cancel();
         }
-        break;
-      case _Typ.notify:
-        final notify = _notifies[id];
-        notify?.call(param);
         break;
       case _Typ.syn:
         _sendPort = param;
