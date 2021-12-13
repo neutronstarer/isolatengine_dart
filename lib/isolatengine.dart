@@ -5,7 +5,7 @@ import 'dart:isolate';
 
 import 'package:cancelable/cancelable.dart';
 
-/// Handler for method be called.
+/// Handle message.
 /// [param] Attached param of method.
 /// The content of [param] can be:
 ///   - [Null]
@@ -17,14 +17,19 @@ import 'package:cancelable/cancelable.dart';
 ///   - [TransferableTypedData]
 ///   - [SendPort]
 ///   - [Capability]
-/// [cancelable] Cancel context. if the operation can be cancelled, you should implementation `whenCancel` for [cancelable].
+/// [cancelable] Cancelletion context.
 /// [notify] Notify when the operation status changed. Always used to notify progress.
-typedef Handler = Future<dynamic> Function(
-  dynamic param, {
-  Cancelable? cancelable,
-  Function(dynamic param)? notify,
-});
+typedef Handle = Future<dynamic> Function(
+  dynamic param,
+  Cancelable cancelable,
+  Notify notify,
+);
 
+/// Notify content
+/// [param] content of notification
+typedef Notify = Function(dynamic param);
+
+/// Isolatengine
 abstract class Isolatengine {
   /// [receivePort] ReceivePort of isolate.
   /// [sendPort] In main isolate, this arg always be null. In new isolate should be correct value.
@@ -32,20 +37,20 @@ abstract class Isolatengine {
     return _Isolatengine(receivePort, sendPort);
   }
 
-  /// Register handler by [method], handler will be triggered when [method] be called by paired isolatengine.
-  /// [method] Method name of handler.
-  /// [handler] Handler for method.
-  operator []=(String method, Handler? handler);
+  /// Register handle by [method], handle will be triggered when [method] be called by paired isolatengine.
+  /// [method] Method name of handle.
+  /// [handle] Handle for method.
+  operator []=(String method, Handle? handle);
 
   /// like []=
-  /// [method] Method name of handler.
-  /// [handler] Handler for method.
-  on(String method, Handler? handler);
+  /// [method] Method name of handle.
+  /// [handle] Handle for method.
+  void on(String method, Handle handle);
 
   /// Emit a message with [method] to paired isolatengine with ignoring reply.
   /// [method] Method witch is registered by paired isolatengine.
   /// [param] Param of this method.
-  /// The content of [param] can be:
+  /// The content of [param] could be:
   ///   - [Null]
   ///   - [bool]
   ///   - [int]
@@ -59,46 +64,64 @@ abstract class Isolatengine {
   Future<void> emit(String method, {dynamic param});
 
   /// Deliver a message with [method] to paired isolatengine with reply.
+  /// [method] Method witch is registered by paired isolatengine.
+  /// [param] Param of this method.
+  ///   /// The content of [param] could be:
+  ///   - [Null]
+  ///   - [bool]
+  ///   - [int]
+  ///   - [double]
+  ///   - [String]
+  ///   - [List] or [Map] (whose elements are any of these)
+  ///   - [TransferableTypedData]
+  ///   - [SendPort]
+  ///   - [Capability]
+  /// [timeout] Timeout.
+  /// [cancelable] Cancelletion context.
+  /// [onNotify] Notification callback.
   Future<dynamic> deliver(
     String method, {
     dynamic param,
     Duration? timeout,
     Cancelable? cancelable,
-    Future<void> Function(dynamic param)? notify,
+    Notify? onNotify,
   });
 
-  /// Continuously receive message
+  /// Continuously receive message.
   Future<void> receive();
+
+  ///[data] Log.
+  Function(String name, dynamic data)? log;
 }
 
-enum _Type {
-  syn,
+enum _Typ {
   emit,
   deliver,
   ack,
   notify,
   cancel,
-}
-
-enum _Status {
-  completed,
-  cancelled,
-  timedout,
+  syn,
+  // ignore: unused_field
+  fin,
 }
 
 class _Message {
-  _Type? type;
-  String? method;
+  _Typ? typ;
   int? id;
-  dynamic error;
+  String? method;
   dynamic param;
+  dynamic error;
   _Message({
-    this.type,
-    this.method,
+    this.typ,
     this.id,
+    this.method,
     this.param,
     this.error,
   });
+  @override
+  String toString() {
+    return {'typ': typ, 'id': id, 'method': method, 'param': param, 'error': error}.toString();
+  }
 }
 
 class _Isolatengine implements Isolatengine {
@@ -109,21 +132,21 @@ class _Isolatengine implements Isolatengine {
     if (_sendPort == null) {
       return;
     }
-    _send(_Message(type: _Type.syn, param: _receivePort.sendPort));
+    _send(_Message(typ: _Typ.syn, param: _receivePort.sendPort));
   }
 
   @override
-  operator []=(String method, Handler? handler) {
-    if (handler == null) {
-      _handlers.remove(method);
+  operator []=(String method, Handle? handle) {
+    if (handle == null) {
+      _handles.remove(method);
       return;
     }
-    _handlers[method] = handler;
+    _handles[method] = handle;
   }
 
   @override
-  on(String method, Handler? handler) {
-    this[method] = handler;
+  void on(String method, Handle handle) {
+    this[method] = handle;
   }
 
   @override
@@ -131,8 +154,7 @@ class _Isolatengine implements Isolatengine {
     String method, {
     dynamic param,
   }) async {
-    final message = _Message(type: _Type.emit, method: method, param: param);
-    // await _send(message.toJson());
+    final message = _Message(typ: _Typ.emit, method: method, param: param);
     await _send(message);
   }
 
@@ -142,59 +164,47 @@ class _Isolatengine implements Isolatengine {
     dynamic param,
     Duration? timeout,
     Cancelable? cancelable,
-    Future<void> Function(dynamic param)? notify,
+    Notify? onNotify,
   }) async {
     final id = _id++;
-    final message = _Message(type: _Type.deliver, method: method, param: param, id: id);
+    final message = _Message(typ: _Typ.deliver, method: method, param: param, id: id);
     StreamSubscription? sub;
     Timer? after;
-    if (notify != null) {
-      _notifications[id] = notify;
+    if (onNotify != null) {
+      _notifies[id] = onNotify;
     }
-    var completed = false;
     final completer = Completer<dynamic>();
     // ignore: prefer_function_declarations_over_variables
-    final complete = (_Status status, {dynamic param, dynamic error}) {
-      if (completed) {
+    final reply = (dynamic param, dynamic error) {
+      if (completer.isCompleted) {
         return;
       }
-      completed = true;
-      switch (status) {
-        case _Status.cancelled:
-          completer.completeError(Exception('cancelled'));
-          break;
-        case _Status.timedout:
-          completer.completeError(Exception('timedout'));
-          break;
-        default:
-          if (error == null) {
-            completer.complete(param);
-            break;
-          }
-          completer.completeError(error);
-          break;
+      if (error == null) {
+        completer.complete(param);
+      } else {
+        completer.completeError(error);
       }
       after?.cancel();
       sub?.cancel();
-      _completions.remove(id);
-      _notifications.remove(id);
+      _replies.remove(id);
+      _notifies.remove(id);
     };
 
     if (cancelable != null) {
       sub = cancelable.whenCancel(() async {
-        complete(_Status.cancelled);
-        final message = _Message(type: _Type.cancel, id: id);
+        completer.completeError('cancelled');
+        final message = _Message(typ: _Typ.cancel, id: id);
         await _send(message);
       });
     }
-    if (timeout != null) {
+    if (timeout != null && timeout.inMicroseconds > 0) {
       after = Timer.periodic(timeout, (timer) async {
-        complete(_Status.timedout);
-        final message = _Message(type: _Type.cancel, id: id);
+        completer.completeError('timedout');
+        final message = _Message(typ: _Typ.cancel, id: id);
         await _send(message);
       });
     }
-    _completions[id] = complete;
+    _replies[id] = reply;
     await _send(message);
     return await completer.future;
   }
@@ -206,62 +216,67 @@ class _Isolatengine implements Isolatengine {
     }
   }
 
+  Function(String name, dynamic data)? log;
+
   _didReceive(dynamic data) async {
+    if (log != null) {
+      log?.call('receive', data);
+    }
     final message = data;
-    final type = message.type;
+    final typ = message.typ;
     final method = message.method;
     final id = message.id;
     final param = message.param;
-    switch (type) {
-      case _Type.emit:
-        final handler = _handlers[method];
-        if (handler == null) {
+    switch (typ) {
+      case _Typ.emit:
+        final handle = _handles[method];
+        if (handle == null) {
           break;
         }
-        handler(param);
+        handle(param, Cancelable(), (_) {});
         break;
-      case _Type.deliver:
-        final handler = _handlers[method];
-        if (handler == null) {
+      case _Typ.deliver:
+        final handle = _handles[method];
+        if (handle == null) {
           break;
         }
         if (id == null) {
           break;
         }
         final cancelable = Cancelable();
-        _cancellations[id] = () {
+        _cancels[id] = () {
           cancelable.cancel();
         };
         try {
           await _send(_Message(
-              type: _Type.ack,
+              typ: _Typ.ack,
               id: id,
-              param: handler(param, cancelable: cancelable, notify: (dynamic param) async {
-                await _send(_Message(type: _Type.notify, id: id, param: param));
+              param: await handle(param, cancelable, (dynamic param) async {
+                await _send(_Message(typ: _Typ.notify, id: id, param: param));
               })));
-          _cancellations.remove(id);
+          _cancels.remove(id);
         } catch (e) {
-          await _send(_Message(type: _Type.ack, id: id, error: e));
-          _cancellations.remove(id);
+          await _send(_Message(typ: _Typ.ack, id: id, error: e));
+          _cancels.remove(id);
         }
         break;
-      case _Type.ack:
-        final completion = _completions[id];
-        if (completion != null) {
-          completion(_Status.completed, param: param);
+      case _Typ.ack:
+        final reply = _replies[id];
+        if (reply != null) {
+          reply(param, null);
         }
         break;
-      case _Type.cancel:
-        final cancel = _cancellations[id];
+      case _Typ.cancel:
+        final cancel = _cancels[id];
         if (cancel != null) {
           cancel();
         }
         break;
-      case _Type.notify:
-        final notify = _notifications[id];
-        await notify?.call(param);
+      case _Typ.notify:
+        final notify = _notifies[id];
+        notify?.call(param);
         break;
-      case _Type.syn:
+      case _Typ.syn:
         _sendPort = param;
         _sendPortStremController.add(_sendPort);
         break;
@@ -274,6 +289,9 @@ class _Isolatengine implements Isolatengine {
     if (_sendPort == null) {
       await _sendPortStremController.stream.first;
     }
+    if (log != null) {
+      log?.call('send', data);
+    }
     _sendPort?.send(data);
   }
 
@@ -281,8 +299,8 @@ class _Isolatengine implements Isolatengine {
   final ReceivePort _receivePort;
   late final _sendPortStremController = StreamController.broadcast();
   late int _id = 0;
-  late final _handlers = <String, Handler>{};
-  late final _completions = <int, Function(_Status status, {dynamic param, dynamic error})>{};
-  late final _notifications = <int, Function(dynamic param)>{};
-  late final _cancellations = <int, Function()>{};
+  late final _handles = <String, Handle>{};
+  late final _replies = <int, Function(dynamic param, dynamic error)>{};
+  late final _notifies = <int, Notify>{};
+  late final _cancels = <int, Function()>{};
 }

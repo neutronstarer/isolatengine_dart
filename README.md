@@ -4,24 +4,23 @@
 void _entry(SendPort sendPort) async {
   final receivePort = ReceivePort();
   final engine = Isolatengine(receivePort, sendPort);
-  // register method
+  engine['ping'] = (param, cancelable, notify) async{
+    return 'pong';
+  };
   await engine.receive();
 }
 
-void main(){
+void startEngine(){
     final receivePort = ReceivePort();
-    final engine = Isolatengine(receivePort);
-    // register method
-    await Isolate.spawn(_entry, receivePort.sendPort);
-    await engine.receive();
+    this.engine = Isolatengine(receivePort);
+    Isolate.spawn(_entry, receivePort.sendPort);
+    engine.receive();
 }
 ```
 ### And now you can call emit or deliver function.
 
 ```dart
-
-engine.emit("your_method", param: null);
-
-final res = await engine.deliver("your_method", param: null);
-
+final r = await this.engine.deliver('ping');
 ```
+
+### For more usage, please run the example app.

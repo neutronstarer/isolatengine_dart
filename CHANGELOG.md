@@ -16,4 +16,8 @@
 
 ## 0.0.5
 
-#TODO: function style.
+* TODO: function style.
+
+## 0.0.6
+
+* TODO: optimize code.
