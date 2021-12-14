@@ -21,7 +21,7 @@ packages:
       name: cancelable
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.0.2"
+    version: "0.0.3"
   characters:
     dependency: transitive
     description:
@@ -179,4 +179,3 @@ packages:
     version: "2.1.0"
 sdks:
   dart: ">=2.12.0 <3.0.0"
-  flutter: any

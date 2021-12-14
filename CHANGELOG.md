@@ -21,3 +21,7 @@
 ## 0.0.6
 
 * TODO: optimize code.
+
+## 0.0.7
+
+* TODO: optimize code.

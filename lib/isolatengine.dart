@@ -120,7 +120,13 @@ class _Message {
   });
   @override
   String toString() {
-    return {'typ': typ, 'id': id, 'method': method, 'param': param, 'error': error}.toString();
+    return {
+      'typ': typ,
+      'id': id,
+      'method': method,
+      'param': param,
+      'error': error,
+    }.toString();
   }
 }
 
@@ -167,7 +173,8 @@ class _Isolatengine implements Isolatengine {
     Notify? onNotify,
   }) async {
     final id = _id++;
-    final message = _Message(typ: _Typ.deliver, method: method, param: param, id: id);
+    final message =
+        _Message(typ: _Typ.deliver, method: method, param: param, id: id);
     StreamSubscription? sub;
     Timer? after;
     if (onNotify != null) {
@@ -175,9 +182,9 @@ class _Isolatengine implements Isolatengine {
     }
     final completer = Completer<dynamic>();
     // ignore: prefer_function_declarations_over_variables
-    final reply = (dynamic param, dynamic error) {
+    final onReply = (dynamic param, dynamic error) {
       if (completer.isCompleted) {
-        return;
+        return false;
       }
       if (error == null) {
         completer.complete(param);
@@ -188,23 +195,26 @@ class _Isolatengine implements Isolatengine {
       sub?.cancel();
       _replies.remove(id);
       _notifies.remove(id);
+      return true;
     };
 
     if (cancelable != null) {
       sub = cancelable.whenCancel(() async {
-        completer.completeError('cancelled');
-        final message = _Message(typ: _Typ.cancel, id: id);
-        await _send(message);
+        if (onReply(null, 'cancelled')) {
+          final message = _Message(typ: _Typ.cancel, id: id);
+          await _send(message);
+        }
       });
     }
     if (timeout != null && timeout.inMicroseconds > 0) {
       after = Timer.periodic(timeout, (timer) async {
-        completer.completeError('timedout');
-        final message = _Message(typ: _Typ.cancel, id: id);
-        await _send(message);
+        if (onReply(null, 'timedout')) {
+          final message = _Message(typ: _Typ.cancel, id: id);
+          await _send(message);
+        }
       });
     }
-    _replies[id] = reply;
+    _replies[id] = onReply;
     await _send(message);
     return await completer.future;
   }
