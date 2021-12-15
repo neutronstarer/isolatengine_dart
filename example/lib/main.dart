@@ -81,7 +81,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   String _text = '';
-  String _timeout = '5';
+  String _timeout = '0';
   Cancelable? _cancelable;
   final Isolatengine _engine = () {
     final receivePort = ReceivePort();
