@@ -1,3 +1,4 @@
+# Isolate procedure call engine.
 ## Usage
 
 ```dart
@@ -7,20 +8,20 @@ void _entry(SendPort sendPort) async {
   engine['ping'] = (param, cancelable, notify) async{
     return 'pong';
   };
-  await engine.receive();
+  await engine.receiveContinuously();
 }
 
 void startEngine(){
     final receivePort = ReceivePort();
     this.engine = Isolatengine(receivePort);
     Isolate.spawn(_entry, receivePort.sendPort);
-    engine.receive();
+    engine.receiveContinuously();
 }
 ```
 ### And now you can call emit or deliver function.
 
 ```dart
-final r = await this.engine.deliver('ping');
+final r = await engine.deliver('ping');
 ```
 
-### For more usage, please run the example app.
+### Try the example for more usage.
