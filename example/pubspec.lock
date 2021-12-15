@@ -21,7 +21,7 @@ packages:
       name: cancelable
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.0.4"
+    version: "0.0.5"
   characters:
     dependency: transitive
     description:
@@ -50,13 +50,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.15.0"
-  craba:
-    dependency: transitive
-    description:
-      name: craba
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "0.0.1"
   cupertino_icons:
     dependency: "direct main"
     description:
@@ -94,7 +87,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.0.7"
+    version: "0.1.0"
   lints:
     dependency: transitive
     description:
@@ -116,6 +109,13 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.7.0"
+  npc:
+    dependency: transitive
+    description:
+      name: npc
+      url: "https://pub.dartlang.org"
+    source: hosted
+    version: "0.0.1"
   path:
     dependency: transitive
     description:

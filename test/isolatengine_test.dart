@@ -11,7 +11,7 @@ void main() {
     final engine = Isolatengine(receivePort);
     _config(engine);
     _run(engine);
-    await engine.receive();
+    await engine.receiveContinuously();
   });
 }
 
@@ -32,7 +32,7 @@ void _entry(SendPort sendPort) async {
   final receivePort = ReceivePort();
   final engine = Isolatengine(receivePort, sendPort);
   _config(engine);
-  await engine.receive();
+  await engine.receiveContinuously();
 }
 
 void _config(Isolatengine engine) {
@@ -47,7 +47,7 @@ Future<String> _download(
   Notify? notify,
   Cancelable? cancelable,
 }) async {
-  StreamSubscription? sub;
+  Disposable? disposable;
   Timer? timer;
   final completer = Completer<String>();
   var i = 0;
@@ -61,7 +61,7 @@ Future<String> _download(
       return;
     }
     timer.cancel();
-    await sub?.cancel();
+    await disposable?.dispose();
     completer.complete('Did download to $param');
   });
   cancelable?.whenCancel(() {
@@ -71,6 +71,5 @@ Future<String> _download(
     timer?.cancel();
     completer.completeError('cancelled');
   });
-  final r = await completer.future;
-  return r;
+  return completer.future;
 }

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer';
 import 'dart:isolate';
 
 import 'package:flutter/material.dart';
@@ -13,7 +12,7 @@ void _entry(SendPort sendPort) async {
   final receivePort = ReceivePort();
   final engine = Isolatengine(receivePort, sendPort);
   _config(engine);
-  await engine.receive();
+  await engine.receiveContinuously();
 }
 
 void _config(Isolatengine engine) {
@@ -28,7 +27,7 @@ Future<String> _download(
   Notify? notify,
   Cancelable? cancelable,
 }) async {
-  StreamSubscription? sub;
+  Disposable? disposable;
   Timer? timer;
   final completer = Completer<String>();
   var i = 0;
@@ -42,18 +41,17 @@ Future<String> _download(
       return;
     }
     timer.cancel();
-    await sub?.cancel();
+    await disposable?.dispose();
     completer.complete('Did download to $param');
   });
-  cancelable?.whenCancel(() {
+  disposable = cancelable?.whenCancel(() {
     if (completer.isCompleted) {
       return;
     }
     timer?.cancel();
     completer.completeError('cancelled');
   });
-  final r = await completer.future;
-  return r;
+  return await completer.future;
 }
 
 class MyApp extends StatelessWidget {
@@ -88,11 +86,8 @@ class _MyHomePageState extends State<MyHomePage> {
   final Isolatengine _engine = () {
     final receivePort = ReceivePort();
     final v = Isolatengine(receivePort);
-    v.log = (name, data) {
-      log(data.toString(), name: name);
-    };
     Isolate.spawn(_entry, receivePort.sendPort);
-    v.receive();
+    v.receiveContinuously();
     return v;
   }();
 
@@ -109,11 +104,7 @@ class _MyHomePageState extends State<MyHomePage> {
       _text = "start download";
     });
     try {
-      final r = await _engine.deliver('download',
-          param: "/path",
-          cancelable: _cancelable,
-          timeout: Duration(seconds: int.parse(_timeout)),
-          onNotify: (param) async {
+      final r = await _engine.deliver('download', param: "/path", cancelable: _cancelable, timeout: Duration(seconds: int.parse(_timeout)), onNotify: (param) async {
         if (param is String) {
           setState(() {
             _text = param;
@@ -175,9 +166,7 @@ class _MyHomePageState extends State<MyHomePage> {
       floatingActionButton: FloatingActionButton(
         onPressed: _click,
         tooltip: _cancelable == null ? 'download' : 'cancel',
-        child: _cancelable == null
-            ? const Icon(Icons.download)
-            : const Icon(Icons.cancel),
+        child: _cancelable == null ? const Icon(Icons.download) : const Icon(Icons.cancel),
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }

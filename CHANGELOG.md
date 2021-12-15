@@ -28,4 +28,8 @@
 
 ## 0.0.8
 
-* TODO: Extract common component named `craba`;
+* TODO: Extract common component;
+
+## 0.1.0
+
+* TODO: Extract common component named `npc`;

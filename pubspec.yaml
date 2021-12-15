@@ -1,12 +1,12 @@
 name: isolatengine
 description: isolate communication engine.
-version: 0.0.8
-homepage: https://github.com/neutronstarer/flutter_isolatengine
+version: 0.1.0
+homepage: https://github.com/neutronstarer/isolatengine_dart
 
 environment:
   sdk: ">=2.12.0 <3.0.0"
 
 dependencies:
-  craba: <1.0.0
+  npc: ">=0.0.1 <1.0.0"
 dev_dependencies:
   test:

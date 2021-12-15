@@ -3,7 +3,7 @@ library isolatengine;
 import 'dart:async';
 import 'dart:isolate';
 
-import 'package:craba/craba.dart';
+import 'package:npc/npc.dart';
 
 /// [Isolatengine]
 abstract class Isolatengine {
@@ -59,66 +59,38 @@ abstract class Isolatengine {
   });
 
   /// Continuously receive message.
-  Future<void> receive();
-
-  ///[data] Log.
-  void Function(String name, dynamic data)? log;
+  Future<void> receiveContinuously();
 }
 
-class _Isolatengine implements Isolatengine {
+class _Isolatengine extends NPC implements Isolatengine {
   _Isolatengine(
     this._receivePort, [
     this._sendPort,
-  ]) {
+  ]) : super(null) {
     if (_sendPort == null) {
       return;
     }
     _sendPort?.send(_receivePort.sendPort);
   }
 
-  late final _craba = () {
-    final v = Craba((message) async {
-      if (_sendPort == null) {
-        await _sendPortStremController.stream.first;
-      }
-      _sendPort?.send(message);
-    });
-    return v;
-  }();
-
   @override
-  void on(String method, Handle handle) {
-    _craba.on(method, handle);
+  Future<void> send(Message message) async {
+    if (_sendPort == null) {
+      await _sendPortStremController.stream.first;
+    }
+    _sendPort?.send(message);
+    return super.send(message);
   }
 
-  @override
-  Future<void> emit(
-    String method, {
-    dynamic param,
-  }) async {
-    await _craba.emit(method, param: param);
-  }
+  SendPort? _sendPort;
+  final ReceivePort _receivePort;
+  late final _sendPortStremController = StreamController.broadcast();
 
   @override
-  Future<dynamic> deliver(
-    String method, {
-    dynamic param,
-    Duration? timeout,
-    Cancelable? cancelable,
-    Notify? onNotify,
-  }) async {
-    return await _craba.deliver(method,
-        param: param,
-        timeout: timeout,
-        cancelable: cancelable,
-        onNotify: onNotify);
-  }
-
-  @override
-  Future<void> receive() async {
+  Future<void> receiveContinuously() async {
     await for (final data in _receivePort) {
       if (data is Message) {
-        _craba.receive(data);
+        await receive(data);
         continue;
       }
       if (data is SendPort) {
@@ -128,10 +100,4 @@ class _Isolatengine implements Isolatengine {
       }
     }
   }
-
-  Function(String name, dynamic data)? log;
-
-  SendPort? _sendPort;
-  final ReceivePort _receivePort;
-  late final _sendPortStremController = StreamController.broadcast();
 }

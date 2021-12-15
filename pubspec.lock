@@ -42,7 +42,7 @@ packages:
       name: cancelable
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.0.4"
+    version: "0.0.5"
   charcode:
     dependency: transitive
     description:
@@ -78,13 +78,6 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.0.3"
-  craba:
-    dependency: "direct main"
-    description:
-      name: craba
-      url: "https://pub.dartlang.org"
-    source: hosted
-    version: "0.0.1"
   crypto:
     dependency: transitive
     description:
@@ -176,6 +169,13 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "2.0.1"
+  npc:
+    dependency: "direct main"
+    description:
+      name: npc
+      url: "https://pub.dartlang.org"
+    source: hosted
+    version: "0.0.1"
   package_config:
     dependency: transitive
     description:
