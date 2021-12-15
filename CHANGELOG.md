@@ -8,20 +8,24 @@
 
 ## 0.0.3
 
-* TODO: fix handler error bug.
+* TODO: Fix handler error bug.
 
 ## 0.0.4
 
-* TODO: optimize code.
+* TODO: Optimize code.
 
 ## 0.0.5
 
-* TODO: function style.
+* TODO: Function style.
 
 ## 0.0.6
 
-* TODO: optimize code.
+* TODO: Optimize code.
 
 ## 0.0.7
 
-* TODO: optimize code.
+* TODO: Optimize code.
+
+## 0.0.8
+
+* TODO: Extract common component named `craba`;

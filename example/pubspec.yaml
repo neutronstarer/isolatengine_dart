@@ -29,7 +29,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cancelable:
   isolatengine:
     path: ../
 
