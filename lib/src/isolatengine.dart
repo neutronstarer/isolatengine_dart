@@ -32,7 +32,7 @@ abstract class Isolatengine {
   ///   - [SendPort]
   ///   - [Capability]
   ///
-  Future<void> emit(String method, {dynamic param});
+  void emit(String method, {dynamic param});
 
   /// Deliver a message with [method] to paired isolatengine with reply.
   /// [method] Method witch is registered by paired isolatengine.

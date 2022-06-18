@@ -1,12 +1,12 @@
 name: isolatengine
 description: isolate communication engine.
-version: 0.1.0
+version: 0.1.1
 homepage: https://github.com/neutronstarer/isolatengine_dart
 
 environment:
   sdk: ">=2.12.0 <3.0.0"
 
 dependencies:
-  npc: ">=0.0.1 <1.0.0"
+  npc: ^1.0.0
 dev_dependencies:
-  test:
+  test: ^1.0.0

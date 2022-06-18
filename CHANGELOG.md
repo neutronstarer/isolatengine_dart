@@ -28,8 +28,12 @@
 
 ## 0.0.8
 
-* TODO: Extract common component;
+* TODO: Extract common component.
 
 ## 0.1.0
 
-* TODO: Extract common component named `npc`;
+* TODO: Extract common component named `npc`.
+
+## 0.1.0
+
+* TODO: Update dependency.
